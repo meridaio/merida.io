@@ -1,0 +1,98 @@
+﻿@page "/"
+@inject IJSRuntime JSRuntime
+@using System.Text
+@using System.Text.RegularExpressions
+<h3>Word Table To Markdown</h3>
+
+<textarea rows="10" cols="50" @onchange="RecalcMd"/>
+<hr />
+<button type="button" @onclick="CopyOutput">Copy</button>
+<br />
+<textarea readonly rows="10" cols="50" @bind="output"/>
+@code {
+    string? output;
+
+    const char TAB = '\u0009';
+    const string NEWLINE = "\n";
+
+    async Task CopyOutput()
+    {
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", output);
+    }
+
+    void RecalcMd(ChangeEventArgs e)
+    {
+        var input = e.Value?.ToString();
+        if (string.IsNullOrEmpty(input))
+        {
+            output = "";
+            return;
+        }
+
+        input = Regex.Replace(input, @"[\p{C}-[\r\n\t]]+", string.Empty);
+
+        var headers = input[..input.IndexOf(NEWLINE)];
+        var tabCount = headers.Count(x => x == TAB);
+
+        var lines = input.Split(NEWLINE);
+        if (string.IsNullOrWhiteSpace(lines.LastOrDefault()))
+            lines = lines.SkipLast(1).ToArray();
+        lines = JoinSplitLines(lines, tabCount);
+        var header = lines[0].Split(TAB);
+        var body = lines.Skip(1).Select(x => x.Split(TAB)).ToArray();
+
+        output = GenerateTable(header, body);
+        StateHasChanged();
+    }
+
+    string[] JoinSplitLines(string[] lines, int tabCount)
+    {
+        List<string> xs = new();
+        for (int i = 0; i < lines.Length; i++)
+        {
+            var s = lines[i];
+            while (true)
+            {
+                Console.WriteLine(s);
+                if (s.Count(x => x == TAB) != tabCount)
+                    s = s + "<br />" + lines[++i];
+                else
+                    break;
+            }
+            xs.Add(s);
+        }
+        return xs.ToArray();
+    }
+
+    string GenerateTable(string[] headers, string[][] body)
+    {
+        var sb = new StringBuilder("|");
+        foreach (var header in headers)
+        {
+            sb.Append(" ");
+            sb.Append(header.Replace("|", "\\|"));
+            sb.Append(" |");
+        }
+
+        sb.Append(NEWLINE);
+        sb.Append("|");
+        foreach (var _ in headers)
+        {
+            sb.Append(" --- |");
+        }
+
+        foreach (var row in body)
+        {
+            sb.Append(NEWLINE);
+            sb.Append("|");
+            foreach (var cell in row)
+            {
+                sb.Append(" ");
+                sb.Append(cell.Replace("|", "\\|"));
+                sb.Append(" |");
+            }
+        }
+
+        return sb.ToString();
+    }
+}
