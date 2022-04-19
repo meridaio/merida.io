@@ -61,3 +61,7 @@ enableEmoji = true  # Shorthand emojis in content files - https://gohugo.io/func
     name = "Blog"
     url = "posts/"
     weight = 10
+  [[menu.main]]
+    name = "Word Table -> Markdown"
+    url = "markdown/"
+    weight = 10
